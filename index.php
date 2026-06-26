@@ -45,14 +45,21 @@ include 'database.php';
     </nav>
 
     <div class="container mt-4">
-        <h2 class="text-center mb-4">Student Grade Viewer</h2>
+
+        <?php if ($_SESSION['role'] == 'admin') { ?>
+            <h2 class="text-center mb-4">All Student Results</h2>
+        <?php } else { ?>
+            <h2 class="text-center mb-4">My Results</h2>
+        <?php } ?>
 
         <div class="table-responsive"> 
             <table class="table table-bordered table-hover text-center" id="resultTable">
                 <thead class="table-dark">
                     <tr>
-                        <th>Student ID</th>
-                        <th>Student Name</th>
+                        <?php if ($_SESSION['role'] == 'admin') { ?>
+                            <th>Student ID</th>
+                            <th>Student Name</th>
+                        <?php } ?>
                         <th>Unit</th>
                         <th>Marks</th>
                         <th>Grade</th>
@@ -61,42 +68,63 @@ include 'database.php';
                 </thead>
                 <tbody>
                     <?php
-                    $sql = "SELECT r.student_id, u.full_name, un.unit_name, r.marks, r.grade, r.semester 
-                            FROM results r
-                            JOIN students s ON r.student_id = s.id
-                            JOIN users u ON s.user_id = u.id
-                            JOIN units un ON r.unit_id = un.id
-                            GROUP BY r.student_id, r.unit_id
-                            ORDER BY u.full_name ASC"; 
-                            
-                    $result = $conn->query($sql);
-                    $last_student_id = 0; 
+                    if ($_SESSION['role'] == 'admin') {
+
+                        // Admin sees everyone's results
+                        $sql = "SELECT r.student_id, u.full_name, un.unit_name, r.marks, r.grade, r.semester 
+                                FROM results r
+                                JOIN students s ON r.student_id = s.id
+                                JOIN users u ON s.user_id = u.id
+                                JOIN units un ON r.unit_id = un.id
+                                GROUP BY r.student_id, r.unit_id
+                                ORDER BY u.full_name ASC";
+                        $stmt = $conn->prepare($sql);
+
+                    } else {
+
+                        // Student sees only their own results.
+                        // $_SESSION['user_id'] is a users.id, so we go through
+                        // students.user_id to find the matching students.id first.
+                        $sql = "SELECT r.student_id, u.full_name, un.unit_name, r.marks, r.grade, r.semester 
+                                FROM results r
+                                JOIN students s ON r.student_id = s.id
+                                JOIN users u ON s.user_id = u.id
+                                JOIN units un ON r.unit_id = un.id
+                                WHERE s.user_id = ?
+                                GROUP BY r.unit_id
+                                ORDER BY un.unit_name ASC";
+                        $stmt = $conn->prepare($sql);
+                        $stmt->bind_param("i", $_SESSION['user_id']);
+
+                    }
+
+                    $stmt->execute();
+                    $result = $stmt->get_result();
+                    $last_student_id = 0;
 
                     if ($result->num_rows > 0) {
-                        while($row = $result->fetch_assoc()) {
+                        while ($row = $result->fetch_assoc()) {
                             echo "<tr>";
-                            
-                            if($row["student_id"] != $last_student_id) {
-                                echo "<td><b>" . $row["student_id"] . "</b></td>";
-                                $last_student_id = $row["student_id"]; 
-                            } else {
-                                echo "<td></td>";
+
+                            if ($_SESSION['role'] == 'admin') {
+                                if ($row["student_id"] != $last_student_id) {
+                                    echo "<td><b>" . htmlspecialchars($row["student_id"]) . "</b></td>";
+                                    echo "<td>" . htmlspecialchars($row["full_name"]) . "</td>";
+                                    $last_student_id = $row["student_id"];
+                                } else {
+                                    echo "<td></td><td></td>";
+                                }
                             }
 
-                            if($row["student_id"] == $last_student_id) {
-                                echo "<td>" . $row["full_name"] . "</td>";
-                            } else {
-                                echo "<td></td>";
-                            }
-
-                            echo "<td>" . $row["unit_name"] . "</td>";
-                            echo "<td>" . $row["marks"] . "</td>";
-                            echo "<td><span class='badge bg-success'>" . $row["grade"] . "</span></td>";
-                            echo "<td>" . $row["semester"] . "</td>";
+                            echo "<td>" . htmlspecialchars($row["unit_name"]) . "</td>";
+                            echo "<td>" . htmlspecialchars($row["marks"]) . "</td>";
+                            echo "<td><span class='badge bg-success'>" . htmlspecialchars($row["grade"]) . "</span></td>";
+                            echo "<td>" . htmlspecialchars($row["semester"]) . "</td>";
                             echo "</tr>";
                         }
                     } else {
-                        echo "<tr><td colspan='6'>No records found</td></tr>";
+                        $colspan = ($_SESSION['role'] == 'admin') ? 6 : 4;
+                        echo "<tr><td colspan='$colspan'>No records found</td></tr>";
                     }
                     ?>
                 </tbody>
