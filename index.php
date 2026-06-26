@@ -45,7 +45,7 @@ include 'database.php';
     </nav>
 
     <div class="container mt-4">
-        <h2 class="text-center mb-4">Student Grade Viewer</h2>
+        <h2 class="text-center mb-4">Students' Results Portal Semester 1 Year 2026</h2>
 
         <div class="table-responsive"> 
             <table class="table table-bordered table-hover text-center" id="resultTable">
